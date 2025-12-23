@@ -38,19 +38,18 @@ define('DB_NAME_MDLAPPS', 'paypal');
 define('WC_INSTANCE_MAPPING', [
     'MeiOSS-' => [ // Prefisso per la prima istanza WC
         'wc_db_name'   => 'wp_mei', // Esempio: DB WP per MeiOSS
-        'wc_db_prefix' => 'wpmei_33_',      // Esempio: Prefisso tabelle per MeiOSS
-        'moodle_db_name' => 'mdl_formazioneoss' // Esempio: DB Moodle associato
+        'wc_db_prefix' => 'wpmei_33_',      // Prefisso tabelle per MeiOSS
+        'moodle_db_name' => 'mdl_formazioneoss', // DB Moodle associato
+        'cf_meta_key'    => 'billing_cf'
     ],
-    /*
-    'SITEB-' => [ // Prefisso per la seconda istanza WC
-        'wc_db_name'   => 'db_siteb',       // Esempio: DB WP per Sito B
-        'wc_db_prefix' => 'wpb_',           // Esempio: Prefisso tabelle per Sito B
-        'moodle_db_name' => 'mdl_altra_istanza' // Esempio: DB Moodle associato
+    'PF' => [ // Prefisso per la seconda istanza WC
+        'wc_db_name'   => 'wp_mei', // Esempio: DB WP per MeiOSS
+        'wc_db_prefix' => 'wpmei_4_',      // Esempio: Prefisso tabelle per Prof.Farmacia
+        'moodle_db_name' => 'mdl_professionefarmacia', // DB Moodle associato
+        'cf_meta_key'    => 'cf_user'
     ],
-    */
     // Aggiungi qui una voce per ogni istanza WooCommerce che usa questo script/PayPal
 ]);
-
 
 // --- Credenziali PayPal ---
 define('PAYPAL_ENVIRONMENT', 'PRODUCTION'); // O 'SANDBOX'

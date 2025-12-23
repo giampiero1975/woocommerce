@@ -45,6 +45,23 @@ if (isset($log)) {
 // --- CONFIGURAZIONE DATE ---
 // =============================================================================
 
+// =============================================================================
+// --- CONFIGURAZIONE DATE (MODIFICATA PER TEST SCARICO) ---
+// =============================================================================
+
+/* test con periodo fisso
+// 1. DATA FINE (Impostata al 6 Novembre per beccare il tuo ordine)
+$endDate = '2025-11-06T23:59:59Z';
+
+// 2. DATA INIZIO PAYPAL (Impostata al 1 Novembre)
+$startDatePayPal = '2025-11-01T00:00:00Z';
+
+// 3. VARIABILI OBBLIGATORIE (Non toccare! Servono per evitare l'errore Fatal)
+$endDateSql = date('Y-m-d H:i:s');
+$startDateBacs = date('Y-m-01 00:00:00', strtotime('first day of last month'));
+$startDateBacsSql = date('Y-m-d H:i:s', strtotime($startDateBacs));
+*/
+
 // 1. FINE PERIODO (Fine giornata corrente)
 $endDate = gmdate('Y-m-d') . 'T23:59:59Z';
 $endDateSql = date('Y-m-d H:i:s');   // Per Query SQL Bonifici
@@ -245,6 +262,13 @@ foreach ($receivedPayments as $tx) {
                     $wooOrderId = $potentialOrderId;
                     $instanceConfig = $config;
                     $instanceConfig['prefix'] = $prefix;
+                    
+                    // --- DEBUG AGGIUNTO ---
+                    if (isset($log)) {
+                        $log->warning("DEBUG MATCH: Trovato prefisso '$prefix'. DB Moodle configurato: " . $instanceConfig['moodle_db_name']);
+                    }
+                    // ----------------------
+                    
                     break;
                 }
             }
