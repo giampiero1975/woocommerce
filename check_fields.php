@@ -19,8 +19,8 @@ require_once $configFile;
 require_once $connectFile;
 
 // 2. CONFIGURAZIONE
-$targetPrefix = 'MeiOSS-'; // L'istanza che vogliamo analizzare (Professione Farmacia)
-// $targetPrefix = 'PF'; // L'istanza che vogliamo analizzare (Professione Farmacia)
+// $targetPrefix = 'MeiOSS-'; // L'istanza che vogliamo analizzare (Professione Farmacia)
+$targetPrefix = 'PF'; // L'istanza che vogliamo analizzare (Professione Farmacia)
 $orderId = $_GET['id'] ?? 0;
 
 if (!$orderId) {

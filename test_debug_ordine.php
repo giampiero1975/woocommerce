@@ -25,7 +25,7 @@ class MockLogger {
 $log = new MockLogger();
 
 // --- CONFIGURAZIONE ---
-$orderIdToTest = $_GET['id'] ?? '7199';
+$orderIdToTest = $_GET['id'] ?? '7195';
 $prefix = $_GET['site'] ?? 'PF'; // Default su PF se non specificato
 
 echo "<h1>🔍 Debug Ordine: $orderIdToTest (Istanza: $prefix)</h1>";
