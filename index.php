@@ -313,20 +313,39 @@ foreach ($receivedPayments as $tx) {
             $stmt_check->close();
             
             if (!$exists && defined('APP_MODE') && APP_MODE === 'PRODUCTION') {
+                // Ho rimosso item_code e item_description dalla query
                 $insert_sql = "INSERT INTO results (
                      transaction_id, date_transaction, paying_name, paying_email, paying_phone,
                      paying_nat, paying_account, billing_address, billing_city, billing_prov,
-                     billing_postalcode, amount, fee_amount, item_purchased,
-                     item_code, item_description
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                     billing_postalcode, amount, fee_amount, item_purchased
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $stmt = $connMdlApps->prepare($insert_sql);
-                $stmt->bind_param("sssssssssssddsss",
-                    $tx['transaction_id'], $tx['transaction_date'], $tx['paying_name'], $tx['paying_email'],
-                    $tx['paying_phone'], $tx['paying_nat'], $tx['paying_account'], $tx['billing_address'],
-                    $tx['billing_city'], $tx['billing_prov'], $tx['billing_postalcode'],
-                    $tx['amount'], $tx['fee_amount'], $tx['item_purchased'], $tx['item_code'], $tx['item_description']
+                
+                // Ho aggiornato bind_param:
+                // 1. Ho tolto le ultime due "s" dalla stringa dei tipi (da "sssssssssssddsss" a "sssssssssssdds")
+                // 2. Ho rimosso le variabili $tx['item_code'] e $tx['item_description']
+                $stmt->bind_param("sssssssssssdds",
+                    $tx['transaction_id'],
+                    $tx['transaction_date'],
+                    $tx['paying_name'],
+                    $tx['paying_email'],
+                    $tx['paying_phone'],
+                    $tx['paying_nat'],
+                    $tx['paying_account'],
+                    $tx['billing_address'],
+                    $tx['billing_city'],
+                    $tx['billing_prov'],
+                    $tx['billing_postalcode'],
+                    $tx['amount'],
+                    $tx['fee_amount'],
+                    $tx['item_purchased']
                     );
+                
+                // Esegui e controlla se ci sono errori
+                if (!$stmt->execute()) {
+                    echo "Errore nell'inserimento: " . $stmt->error;
+                }
                 
                 if ($stmt->execute()) {
                     if (isset($log)) $log->info("Salvato in 'results' OK.");
