@@ -5,6 +5,14 @@ use PHPMailer\PHPMailer\Exception;
 require 'vendor/autoload.php';
 
 function sendNotificationEmail($tx) {
+    // --- AGGIUNGI QUESTO BLOCCO ---
+    if (defined('ENABLE_EMAIL_NOTIFICATIONS') && ENABLE_EMAIL_NOTIFICATIONS === false) {
+        // Se vuoi tracciarlo nel log (opzionale)
+        error_log("Email bloccata: ENABLE_EMAIL_NOTIFICATIONS è false.");
+        return true; // Ritorniamo true per non rompere il flusso degli script chiamanti
+    }
+    // ------------------------------
+
     $mail = new PHPMailer(true);
     
     try {

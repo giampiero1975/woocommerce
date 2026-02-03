@@ -33,44 +33,12 @@ function checkWooOrderAlreadyQueued(string $wooOrderId): bool
     return $exists;
 }
 
-function getBacsOrderIdsFromDB(string $wpDbName, string $wpPrefix, string $startDate, string $endDate, array $statuses = ['wc-processing']): array
-{
-    global $log;
-    $orderIds = [];
-    $connWp = DBConnector::getWpDbByName($wpDbName);
-    if (! $connWp) return [];
-    
-    $statusPlaceholders = implode(',', array_fill(0, count($statuses), '?'));
-    $sql = "SELECT id FROM {$wpPrefix}wc_orders
-            WHERE payment_method = 'bacs'
-            AND date_created_gmt BETWEEN ? AND ?
-            AND status IN ($statusPlaceholders)";
-    
-    try {
-        $stmt = $connWp->prepare($sql);
-        if ($stmt) {
-            $types = "ss" . str_repeat("s", count($statuses));
-            $params = array_merge([$startDate, $endDate], $statuses);
-            $stmt->bind_param($types, ...$params);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            while ($row = $result->fetch_assoc()) {
-                $orderIds[] = $row['id'];
-            }
-            $stmt->close();
-        }
-        if (! empty($orderIds)) {
-            $log?->info("Trovati " . count($orderIds) . " bonifici in $wpDbName.");
-        }
-    } catch (Exception $e) {
-        $log?->error("Errore ricerca bonifici in $wpDbName: " . $e->getMessage());
-    }
-    return $orderIds;
-}
-
 /**
  * Recupera i dettagli dell'ordine e cerca il CF nella chiave specificata ($targetCfKey).
+ * FIX: Aggiunto customer_id per evitare userid = 0 nel DB locale.
  */
+
+
 function getWooCommerceOrderDetails_FROM_DB(string $wooOrderId, string $wpDbName, string $wpPrefix, string $targetCfKey = 'billing_cf'): ?array
 {
     global $log;
@@ -79,8 +47,8 @@ function getWooCommerceOrderDetails_FROM_DB(string $wooOrderId, string $wpDbName
     
     $orderDetails = null;
     try {
-        // 1. Ordine
-        $sqlOrder = "SELECT id, status, date_created_gmt, date_updated_gmt, total_amount FROM {$wpPrefix}wc_orders WHERE id = ? LIMIT 1";
+        // 1. Ordine - AGGIUNTO customer_id NELLA SELECT
+        $sqlOrder = "SELECT id, status, date_created_gmt, date_updated_gmt, total_amount, customer_id FROM {$wpPrefix}wc_orders WHERE id = ? LIMIT 1";
         $stmtOrder = $connWp->prepare($sqlOrder);
         
         if (! $stmtOrder) { throw new Exception("Errore SQL Prepare (Order): " . $connWp->error); }
@@ -97,6 +65,7 @@ function getWooCommerceOrderDetails_FROM_DB(string $wooOrderId, string $wpDbName
         }
         
         $orderDetails = $orderData;
+        $orderDetails['customer_id'] = $orderData['customer_id']; // RECUPERO ID UTENTE REALE
         $orderDetails['status'] = str_replace('wc-', '', $orderData['status']);
         $orderDetails['total'] = number_format((float) $orderData['total_amount'], 2, '.', '');
         $orderDetails['date_updated_gmt'] = $orderData['date_updated_gmt'] ?? null;
@@ -114,17 +83,14 @@ function getWooCommerceOrderDetails_FROM_DB(string $wooOrderId, string $wpDbName
             $resultMeta = $stmtMeta->get_result();
             
             while ($rowMeta = $resultMeta->fetch_assoc()) {
-                
                 // A. Cerca la chiave passata da config (es. 'cf_user')
                 if ($rowMeta['meta_key'] === $targetCfKey) {
                     $orderDetails['billing']['cf'] = $rowMeta['meta_value'];
                 }
-                
-                // B. Fallback: cerca 'billing_cf' standard se non l'ha ancora trovato
+                // B. Fallback: cerca 'billing_cf' standard
                 if (empty($orderDetails['billing']['cf']) && $rowMeta['meta_key'] === 'billing_cf') {
                     $orderDetails['billing']['cf'] = $rowMeta['meta_value'];
                 }
-                
                 // C. Data Bonifico
                 if ($rowMeta['meta_key'] === 'bacs_date') {
                     $orderDetails['bacs_date'] = $rowMeta['meta_value'];
@@ -160,6 +126,7 @@ function getWooCommerceOrderDetails_FROM_DB(string $wooOrderId, string $wpDbName
     }
     return $orderDetails;
 }
+
 
 function findMoodleCourseId(int $productId, string $wpDbName, string $wpPrefix): ?int
 {
@@ -282,146 +249,98 @@ function insertIntoMoodlePayments_PROD($userId, $courseId, $moodleDbName, $payme
 function queueWooOrderForProcessing(string $wooOrderId, array $instanceConfig): array
 {
     global $log;
-    $result = ['success' => false, 'error' => null, 'moodleUserId' => null, 'moodleCourseId' => null];
+    $result = ['success' => false, 'error' => null];
     
-    if (empty($instanceConfig['wc_db_name']) || empty($instanceConfig['wc_db_prefix'])) {
-        $result['error'] = "Configurazione incompleta.";
-        return $result;
-    }
-    
-    // 1. Recuperiamo la chiave dal config (default 'billing_cf' se manca)
     $cfMetaKey = $instanceConfig['cf_meta_key'] ?? 'billing_cf';
-    
-    // 2. CHIAMATA CORRETTA ALLA FUNZIONE (Passiamo il parametro 4)
     $orderDetails = getWooCommerceOrderDetails_FROM_DB(
         $wooOrderId,
         $instanceConfig['wc_db_name'],
         $instanceConfig['wc_db_prefix'],
-        $cfMetaKey // <--- FONDAMENTALE: Passiamo la chiave (es 'cf_user')
+        $cfMetaKey
         );
     
-    if (! $orderDetails) {
-        $result['error'] = "Dettagli ordine non trovati.";
+    if (!$orderDetails) {
+        $result['error'] = "Dettagli ordine $wooOrderId non trovati.";
         return $result;
     }
     
-    // --- LOGICA GESTIONE DATE ---
-    $dateToUse = null;
     $isPayPal = isset($instanceConfig['is_paypal']) && $instanceConfig['is_paypal'] === true;
+    $methodLabel = $isPayPal ? 'woocommerce' : 'manual';
+    $moodleDbName = $instanceConfig['moodle_db_name'] ?? 'N/A';
+    $moodleUserId = (int)($orderDetails['customer_id'] ?? 0);
     
-    if (! empty($orderDetails['bacs_date'])) {
-        // CASO 1: BONIFICO con Data Manuale
+    $dateToUse = $orderDetails['date_updated_gmt'] ?? date('Y-m-d H:i:s');
+    if (!empty($orderDetails['bacs_date'])) {
         $dateObj = DateTime::createFromFormat('d/m/Y', $orderDetails['bacs_date']);
-        if ($dateObj) {
-            $limiteTemporale = new DateTime('first day of last month');
-            $limiteTemporale->setTime(0, 0, 0);
-            $checkDate = clone $dateObj;
-            $checkDate->setTime(0, 0, 0);
-            
-            if ($checkDate < $limiteTemporale) {
-                $errorMsg = "SKIP: Data Bonifico ({$orderDetails['bacs_date']}) troppo vecchia.";
-                if (isset($log)) $log->info($errorMsg);
-                $result['error'] = $errorMsg;
-                return $result;
-            }
-            
-            $hour = 12; $min = 0; $sec = 0;
-            if (! empty($orderDetails['date_updated_gmt'])) {
-                try {
-                    $updatedObj = new DateTime($orderDetails['date_updated_gmt']);
-                    $hour = (int) $updatedObj->format('H');
-                    $min = (int) $updatedObj->format('i');
-                    $sec = (int) $updatedObj->format('s');
-                } catch (Exception $e) {}
-            }
-            $dateObj->setTime($hour, $min, $sec);
-            $dateToUse = $dateObj->format('Y-m-d H:i:s');
-        } else {
-            $errorMsg = "Data bonifico formato errato ($wooOrderId): " . $orderDetails['bacs_date'];
-            $log?->error($errorMsg);
-            $result['error'] = $errorMsg;
-            return $result;
-        }
-    } else {
-        // CASO 2: NO DATA MANUALE (PayPal o Bonifico incompleto)
-        if (! $isPayPal) {
-            $errorMsg = "Data Bonifico mancante per ordine $wooOrderId. Processo bloccato.";
-            $log?->warning($errorMsg);
-            $result['error'] = $errorMsg;
-            return $result;
-        }
-        if ($isPayPal && ! empty($orderDetails['date_updated_gmt'])) {
-            $dateToUse = $orderDetails['date_updated_gmt'];
-        }
-    }
-    
-    $billing_cf = trim($orderDetails['billing']['cf'] ?? '');
-    if (empty($billing_cf)) {
-        $result['error'] = "CF mancante (Cercato in: $cfMetaKey)";
-        return $result;
+        if ($dateObj) $dateToUse = $dateObj->format('Y-m-d H:i:s');
     }
     
     $lineItems = $orderDetails['line_items'] ?? [];
-    if (empty($lineItems)) {
-        $result['error'] = "Nessun articolo";
-        return $result;
-    }
+    $successAll = true;
     
-    // Ricerca Utente Moodle
-    $moodleUserId = null;
-    $moodleDbName = $instanceConfig['moodle_db_name'] ?? null;
-    
+    // ELIMINATO IL CICLO FOR: Salviamo una sola riga per ogni prodotto nell'ordine [cite: 2026-01-09]
     foreach ($lineItems as $item) {
-        if (! empty($item['product_id'])) {
-            $courseId = findMoodleCourseId($item['product_id'], $instanceConfig['wc_db_name'], $instanceConfig['wc_db_prefix']);
-            if ($courseId && $moodleDbName) {
-                $userId = findMoodleUserByCF($billing_cf, $moodleDbName);
-                if ($userId) {
-                    $moodleUserId = $userId;
-                    break;
-                }
-            }
-        }
+        $moodleCourseId = (int)$item['product_id'];
+        $totalRiga = (float)$item['total']; // Questo è il totale della riga (es. 510€)
+        
+        // Inserimento diretto senza moltiplicare i record
+        $ok = insertIntoMoodlePayments(
+            $moodleUserId,
+            $moodleCourseId,
+            $moodleDbName,
+            $wooOrderId,
+            $totalRiga, // Salviamo il totale intero della riga
+            $methodLabel,
+            $dateToUse
+            );
+        if (!$ok) $successAll = false;
     }
     
-    if (! $moodleUserId) {
-        $result['error'] = "Utente Moodle non trovato per CF $billing_cf su DB $moodleDbName";
-        return $result;
-    }
-    $result['moodleUserId'] = $moodleUserId;
-    
-    $methodLabel = $isPayPal ? 'woocommerce' : 'manual';
-    $allQueuedSuccessfully = true;
-    
-    foreach ($lineItems as $item) {
-        $productId = $item['product_id'] ?? 0;
-        if (! $productId) continue;
-        
-        $moodleCourseId = findMoodleCourseId($productId, $instanceConfig['wc_db_name'], $instanceConfig['wc_db_prefix']);
-        if (! $moodleCourseId) {
-            $allQueuedSuccessfully = false;
-            $errorMsg = "Corso Moodle non trovato per Prodotto ID: $productId (Ordine $wooOrderId)";
-            $result['error'] = $errorMsg;
-            $log?->error($errorMsg);
-            continue;
-        }
-        
-        $result['moodleCourseId'] = $moodleCourseId;
-        $qty = max(1, (int) ($item['quantity'] ?? 1));
-        $costPerUnit = ($qty > 0) ? round(((float) $item['total']) / $qty, 2) : 0;
-        
-        for ($q = 0; $q < $qty; $q ++) {
-            $success = insertIntoMoodlePayments($moodleUserId, $moodleCourseId, $moodleDbName, $wooOrderId, $costPerUnit, $methodLabel, date('Y-m-d H:i:s'));
-            if (! $success) {
-                $allQueuedSuccessfully = false;
-                $errorMsg = "Errore insertIntoMoodlePayments per Ordine $wooOrderId, Corso $moodleCourseId";
-                $result['error'] = $errorMsg;
-                $log?->error($errorMsg);
-            }
-        }
+    if ($successAll && !empty($lineItems)) {
+        $result['success'] = true;
+    } else {
+        $result['success'] = false;
+        $result['error'] = "Errore durante il salvataggio dei dati per l'ordine $wooOrderId.";
     }
     
-    $result['success'] = $allQueuedSuccessfully;
     return $result;
+}
+
+/**
+ * Recupera gli ID degli ordini pagati con bonifico (bacs) in un range di date.
+ */
+function getBacsOrderIdsFromDB(string $wpDbName, string $wpPrefix, string $startDate, string $endDate, array $statuses = ['wc-processing']): array
+{
+    global $log;
+    $orderIds = [];
+    $connWp = DBConnector::getWpDbByName($wpDbName);
+    if (! $connWp) return [];
+    
+    $statusPlaceholders = implode(',', array_fill(0, count($statuses), '?'));
+    $sql = "SELECT id FROM {$wpPrefix}wc_orders
+            WHERE payment_method = 'bacs'
+            AND date_created_gmt BETWEEN ? AND ?
+            AND status IN ($statusPlaceholders)";
+    
+    try {
+        $stmt = $connWp->prepare($sql);
+        if ($stmt) {
+            $types = "ss" . str_repeat("s", count($statuses));
+            $params = array_merge([$startDate, $endDate], $statuses);
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $orderIds[] = $row['id'];
+            }
+            $stmt->close();
+        }
+        if (! empty($orderIds)) {
+            $log?->info("Trovati " . count($orderIds) . " bonifici in $wpDbName.");
+        }
+    } catch (Exception $e) {
+        $log?->error("Errore ricerca bonifici in $wpDbName: " . $e->getMessage());
+    }
+    return $orderIds;
 }
 ?>

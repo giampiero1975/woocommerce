@@ -109,3 +109,68 @@ WHERE sales = '0'
 AND `logfile` IS NULL
 ORDER BY id ASC
 LIMIT 10;
+
+-------------- STRUMENTI ------------.
+
+# 📘 Documentazione Strumenti di Check & Debug
+
+Questa suite di script serve a monitorare l'integrità dei dati tra i server remoti (WordPress/WooCommerce) e il database locale `paypal`.
+
+### 1. `verifica_ordine.php` (Il Controllo Qualità)
+
+* **Cosa fa**: Effettua un confronto incrociato tra l'ordine su WooCommerce e quello scaricato localmente.
+* **A cosa serve**: A verificare che i dati siano corretti (ID Utente, ID Corso, Prezzo) e che l'anagrafica sia stata estratta correttamente da `wp_usermeta`.
+* **Come si usa**:
+* URL: `verifica_ordine.php?payment_id=7344&site=PF`
+* Parametri: `payment_id` (ID ordine) e `site` (prefisso istanza: `PF` o `MeiOSS-`).
+
+
+
+### 2. `test_debug_ordine.php` (L'Analisi Esplosa)
+
+* **Cosa fa**: Legge direttamente le tabelle `woocommerce_order_items` e `meta` per vedere come WooCommerce ha registrato l'acquisto.
+* **A cosa serve**: Fondamentale per capire la struttura grezza del carrello (quantità e totali di riga) prima di ogni elaborazione.
+* **Come si usa**:
+* URL: `test_debug_ordine.php?id=7298&site=PF`
+* Usa questo quando un ordine sembra "strano" o i totali non tornano.
+
+
+
+### 3. `check_fields.php` (L'Esploratore di Database)
+
+* **Cosa fa**: Scansiona tutti i metadati di un ordine specifico.
+* **A cosa serve**: Serve a mappare i campi fiscali (CF, P.IVA, SDI) che cambiano tra i vari siti (es. `billing_cf` vs `cf_user`).
+* **Come si usa**:
+* URL: `check_fields.php?id=7183`
+* Ti permette di trovare la "chiave" giusta da inserire in `config_db.php` sotto la voce `cf_meta_key`.
+
+
+
+### 4. `check_bonifici.php` (Accounting & Incassi)
+
+* **Cosa fa**: Estrae tutti gli ordini pagati con bonifico filtrandoli per **Data Valuta** (`bacs_date`).
+* **A cosa serve**: Uso amministrativo. Serve per riconciliare gli estratti conto bancari con gli ordini WooCommerce.
+* **Come si usa**:
+* URL: `check_bonifici.php?start_date=2025-12-01&end_date=2025-12-31`
+* Mostra gli incassi effettivi di un periodo su tutti i siti mappati.
+
+
+
+### 5. `check_paypal.php` (Emergenze PayPal)
+
+* **Cosa fa**: Interroga le API ufficiali di PayPal Reporting.
+* **A cosa serve**: Quando un cliente giura di aver pagato ma l'ordine non c'è su WooCommerce, questo script ti dice se i soldi sono effettivamente arrivati sul conto PayPal.
+* **Come si usa**:
+* URL: `check_paypal.php` (con filtro date nel form interno).
+
+
+
+---
+
+## ⚠️ Warning: La Regola d'Oro
+
+Nonostante questi script siano potenti, ricorda che:
+
+1. **Lavorano in sola lettura**: Non modificano mai i dati sui server remoti.
+2. **Sorgente Unica**: Tutti puntano a WooCommerce come fonte primaria di verità [cite: 2026-01-07].
+3. **Ambiente**: Funzionano solo se `connect.php` e `config_db.php` sono configurati correttamente per la tua rete locale.
