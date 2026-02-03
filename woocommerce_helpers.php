@@ -266,30 +266,47 @@ function queueWooOrderForProcessing(string $wooOrderId, array $instanceConfig): 
     
     $isPayPal = isset($instanceConfig['is_paypal']) && $instanceConfig['is_paypal'] === true;
     $methodLabel = $isPayPal ? 'woocommerce' : 'manual';
+    
+    // --- IL TUO PUNTO FERMO: CONTROLLO RIGOROSO DATA BONIFICO ---
+    $dateToUse = null;
+    
+    if (!$isPayPal) {
+        // Se è un bonifico (manual), bacs_date DEVE essere valorizzata
+        if (empty($orderDetails['bacs_date'])) {
+            if (isset($log)) $log->warning("Ordine #$wooOrderId SALTATO: Pagamento BACS senza data manuale (bacs_date).");
+            $result['error'] = "Manca data manuale del bonifico.";
+            return $result; // SI FERMA QUI E NON SCARICA NULLA
+        }
+        
+        $dateObj = DateTime::createFromFormat('d/m/Y', $orderDetails['bacs_date']);
+        if ($dateObj) {
+            $dateToUse = $dateObj->format('Y-m-d H:i:s');
+        } else {
+            if (isset($log)) $log->error("Ordine #$wooOrderId: Formato data bacs_date non valido.");
+            $result['error'] = "Formato data non valido.";
+            return $result;
+        }
+    } else {
+        // Per PayPal usiamo la data di aggiornamento automatica
+        $dateToUse = $orderDetails['date_updated_gmt'] ?? date('Y-m-d H:i:s');
+    }
+    // ----------------------------------------------------------
+    
     $moodleDbName = $instanceConfig['moodle_db_name'] ?? 'N/A';
     $moodleUserId = (int)($orderDetails['customer_id'] ?? 0);
-    
-    $dateToUse = $orderDetails['date_updated_gmt'] ?? date('Y-m-d H:i:s');
-    if (!empty($orderDetails['bacs_date'])) {
-        $dateObj = DateTime::createFromFormat('d/m/Y', $orderDetails['bacs_date']);
-        if ($dateObj) $dateToUse = $dateObj->format('Y-m-d H:i:s');
-    }
-    
     $lineItems = $orderDetails['line_items'] ?? [];
     $successAll = true;
     
-    // ELIMINATO IL CICLO FOR: Salviamo una sola riga per ogni prodotto nell'ordine [cite: 2026-01-09]
     foreach ($lineItems as $item) {
         $moodleCourseId = (int)$item['product_id'];
-        $totalRiga = (float)$item['total']; // Questo è il totale della riga (es. 510€)
+        $totalRiga = (float)$item['total'];
         
-        // Inserimento diretto senza moltiplicare i record
         $ok = insertIntoMoodlePayments(
             $moodleUserId,
             $moodleCourseId,
             $moodleDbName,
             $wooOrderId,
-            $totalRiga, // Salviamo il totale intero della riga
+            $totalRiga,
             $methodLabel,
             $dateToUse
             );
@@ -299,8 +316,7 @@ function queueWooOrderForProcessing(string $wooOrderId, array $instanceConfig): 
     if ($successAll && !empty($lineItems)) {
         $result['success'] = true;
     } else {
-        $result['success'] = false;
-        $result['error'] = "Errore durante il salvataggio dei dati per l'ordine $wooOrderId.";
+        $result['error'] = "Errore durante il salvataggio dei dati.";
     }
     
     return $result;
