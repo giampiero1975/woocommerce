@@ -5,9 +5,9 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-require_once __DIR__ . '/config_db.php';
-require_once __DIR__ . '/connect.php';
-require_once __DIR__ . '/woocommerce_helpers.php';
+require_once '../config_db.php';
+require_once '../connect.php';
+require_once '../woocommerce_helpers.php';
 
 $orderIdToTest = $_GET['id'] ?? '7397';
 $prefix = $_GET['site'] ?? 'PF';

@@ -181,7 +181,8 @@ function findMoodleUserByCF(string $cf, string $moodleDbName): ?int
 }
 
 // Inserimento Helper
-function insertIntoMoodlePayments(int $userId, int $courseId, string $dbName, string $paymentId, float $cost, string $method, ?string $customDate = null): bool
+// Cambia int $courseId in string $courseId
+function insertIntoMoodlePayments(int $userId, string $courseId, string $dbName, string $paymentId, float $cost, string $method, ?string $customDate = null): bool
 {
     $appMode = defined('APP_MODE') ? APP_MODE : 'PRODUCTION';
     if ($appMode === 'TEST') {
@@ -191,7 +192,7 @@ function insertIntoMoodlePayments(int $userId, int $courseId, string $dbName, st
     }
 }
 
-function insertIntoMoodlePayments_TEST_CSV(int $userId, int $courseId, string $dbName, string $paymentId, float $cost, string $method, ?string $customDate = null): bool
+function insertIntoMoodlePayments_TEST_CSV(int $userId, string $courseId, string $dbName, string $paymentId, float $cost, string $method, ?string $customDate = null): bool
 {
     if (! defined('TEST_OUTPUT_FILE')) return false;
     $timestampToWrite = $customDate ? $customDate : date('Y-m-d H:i:s');
@@ -207,39 +208,35 @@ function insertIntoMoodlePayments_PROD($userId, $courseId, $moodleDbName, $payme
 {
     global $log;
     $conn = DBConnector::getMoodleAppsDb();
-    if (! $conn) {
-        $log?->error("PROD INSERT: Connessione DB persa/nulla.");
-        return false;
-    }
+    if (! $conn) return false;
     
     $finalDate = $dateToUse ? $dateToUse : date('Y-m-d H:i:s');
     $sql = "INSERT INTO moodle_payments (userid, courseid, payment_id, cost, method, data_ins, mdl) VALUES (?, ?, ?, ?, ?, ?, ?)";
     
     try {
         $stmt = $conn->prepare($sql);
-        if (! $stmt) {
-            $log?->error("ERRORE SQL PREPARE (Ordine $paymentId): " . $conn->error);
-            return false;
-        }
+        if (! $stmt) return false;
         
         $userId = (int) $userId;
-        $courseId = (int) $courseId;
+        // RIMOSSO: $courseId = (int) $courseId; <-- Non forzare più a intero
         $paymentId = (string) $paymentId;
         $cost = (float) $cost;
-        $method = (string) $method;
-        $finalDate = (string) $finalDate;
-        $moodleDbName = (string) $moodleDbName;
         
-        $stmt->bind_param("iisdsss", $userId, $courseId, $paymentId, $cost, $method, $finalDate, $moodleDbName);
+        /**
+         * BIND PARAM:
+         * i = userid (int)
+         * s = courseid (string JSON) <-- MODIFICATO DA 'i' A 's'
+         * i = payment_id (int nel DB)
+         * d = cost (double)
+         * s = method (string)
+         * s = data_ins (string)
+         * s = mdl (string)
+         */
+        $stmt->bind_param("isidsss", $userId, $courseId, $paymentId, $cost, $method, $finalDate, $moodleDbName);
         
-        if ($stmt->execute()) {
-            $stmt->close();
-            return true;
-        } else {
-            $log?->error("ERRORE SQL EXECUTE (Ordine $paymentId, Corso $courseId): " . $stmt->error);
-            $stmt->close();
-            return false;
-        }
+        $res = $stmt->execute();
+        $stmt->close();
+        return $res;
     } catch (Exception $e) {
         $log?->error("ECCEZIONE Insert PROD: " . $e->getMessage());
         return false;
@@ -264,60 +261,54 @@ function queueWooOrderForProcessing(string $wooOrderId, array $instanceConfig): 
         return $result;
     }
     
-    $isPayPal = isset($instanceConfig['is_paypal']) && $instanceConfig['is_paypal'] === true;
-    $methodLabel = $isPayPal ? 'woocommerce' : 'manual';
-    
-    // --- IL TUO PUNTO FERMO: CONTROLLO RIGOROSO DATA BONIFICO ---
+    // --- GESTIONE DATA (BACS o Altro) ---
     $dateToUse = null;
+    $isPayPal = isset($instanceConfig['is_paypal']) && $instanceConfig['is_paypal'] === true;
     
     if (!$isPayPal) {
-        // Se è un bonifico (manual), bacs_date DEVE essere valorizzata
         if (empty($orderDetails['bacs_date'])) {
-            if (isset($log)) $log->warning("Ordine #$wooOrderId SALTATO: Pagamento BACS senza data manuale (bacs_date).");
-            $result['error'] = "Manca data manuale del bonifico.";
-            return $result; // SI FERMA QUI E NON SCARICA NULLA
-        }
-        
-        $dateObj = DateTime::createFromFormat('d/m/Y', $orderDetails['bacs_date']);
-        if ($dateObj) {
-            $dateToUse = $dateObj->format('Y-m-d H:i:s');
-        } else {
-            if (isset($log)) $log->error("Ordine #$wooOrderId: Formato data bacs_date non valido.");
-            $result['error'] = "Formato data non valido.";
+            $result['error'] = "Manca data manuale del bonifico (bacs_date).";
             return $result;
         }
+        $dateObj = DateTime::createFromFormat('d/m/Y', $orderDetails['bacs_date']);
+        $dateToUse = $dateObj ? $dateObj->format('Y-m-d H:i:s') : null;
     } else {
-        // Per PayPal usiamo la data di aggiornamento automatica
         $dateToUse = $orderDetails['date_updated_gmt'] ?? date('Y-m-d H:i:s');
     }
-    // ----------------------------------------------------------
     
-    $moodleDbName = $instanceConfig['moodle_db_name'] ?? 'N/A';
+    if (!$dateToUse) return ['success' => false, 'error' => "Data non valida."];
+    
+    // --- NUOVA LOGICA: ACCORPAMENTO CORSI ---
     $moodleUserId = (int)($orderDetails['customer_id'] ?? 0);
+    $moodleDbName = $instanceConfig['moodle_db_name'] ?? 'N/A';
     $lineItems = $orderDetails['line_items'] ?? [];
-    $successAll = true;
     
+    // Creiamo un array con tutti i product_id
+    $allCourseIds = [];
     foreach ($lineItems as $item) {
-        $moodleCourseId = (int)$item['product_id'];
-        $totalRiga = (float)$item['total'];
-        
-        $ok = insertIntoMoodlePayments(
-            $moodleUserId,
-            $moodleCourseId,
-            $moodleDbName,
-            $wooOrderId,
-            $totalRiga,
-            $methodLabel,
-            $dateToUse
-            );
-        if (!$ok) $successAll = false;
+        $allCourseIds[] = (int)$item['product_id'];
     }
     
-    if ($successAll && !empty($lineItems)) {
-        $result['success'] = true;
-    } else {
-        $result['error'] = "Errore durante il salvataggio dei dati.";
-    }
+    // Trasformiamo l'array in stringa JSON per il database
+    $courseIdJson = json_encode($allCourseIds);
+    
+    // Usiamo il totale reale dell'ordine (comprensivo di bolli/tasse)
+    $totalOrder = (float)$orderDetails['total'];
+    $methodLabel = $isPayPal ? 'woocommerce' : 'manual';
+    
+    // Eseguiamo UN SOLO inserimento per tutto l'ordine
+    $ok = insertIntoMoodlePayments(
+        $moodleUserId,
+        $courseIdJson, // Passiamo la stringa JSON invece di un singolo ID
+        $moodleDbName,
+        $wooOrderId,
+        $totalOrder,
+        $methodLabel,
+        $dateToUse
+        );
+    
+    $result['success'] = $ok;
+    if (!$ok) $result['error'] = "Errore durante il salvataggio nel database locale.";
     
     return $result;
 }

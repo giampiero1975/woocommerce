@@ -4,8 +4,8 @@
  * Cerca sia 'bacs_date' che '_bacs_date' per sicurezza.
  */
 
-require_once __DIR__ . '/config_db.php';
-require_once __DIR__ . '/connect.php';
+require_once '../config_db.php';
+require_once '../connect.php';
 
 // --- CONFIGURAZIONE DATE ---
 // Default: primi e ultimi giorni del mese corrente
@@ -57,10 +57,10 @@ $sqlEnd   = $endDateInput;
 <body>
 
 <div class="container">
-    <h2>🗓️ Ricerca Bonifici (Per Data Valuta)</h2>
+    <h2>ðŸ—“ï¸� Ricerca Bonifici (Per Data Valuta)</h2>
     
     <div class="info-box">
-        ⚠️ <b>Nota:</b> Mostra bonifici con data valuta (campi <code>bacs_date</code> o <code>_bacs_date</code>) nel periodo selezionato.
+        âš ï¸� <b>Nota:</b> Mostra bonifici con data valuta (campi <code>bacs_date</code> o <code>_bacs_date</code>) nel periodo selezionato.
     </div>
     
     <form method="GET">
@@ -166,10 +166,10 @@ $sqlEnd   = $endDateInput;
                 echo "<tr>
                         <td><strong>#{$o['id']}</strong></td>
                         <td style='color:#777;'>" . date('d/m/Y', strtotime($o['date_ord'])) . "</td>
-                        <td><span class='valuta-ok'>📅 {$o['bacs_date']}</span></td>
+                        <td><span class='valuta-ok'>ðŸ“… {$o['bacs_date']}</span></td>
                         <td><span class='badge $classStatus'>" . strtoupper($statusRaw) . "</span></td>
                         <td>{$o['email']}</td>
-                        <td style='color:green;font-weight:bold'>€ " . number_format((float)$o['total_amount'], 2, ',', '.') . "</td>
+                        <td style='color:green;font-weight:bold'>â‚¬ " . number_format((float)$o['total_amount'], 2, ',', '.') . "</td>
                       </tr>";
             }
             echo "</tbody></table>";

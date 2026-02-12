@@ -23,18 +23,17 @@ define('MOODLE_DB_USER', 'moodle');       // Utente comune DB Moodle
 define('MOODLE_DB_PASS', 'RmnPbT78');    // Password comune DB Moodle <- SOSTITUISCI!
 
 // Database Moodle Apps Admin (per tabella 'results' e 'moodle_payments') - Potrebbe essere diverso
-
+/*
 define('DB_HOST_MDLAPPS', '192.168.11.16');
 define('DB_USER_MDLAPPS', 'mdlapps');
 define('DB_PASS_MDLAPPS', 'RmnPbT78');
 define('DB_NAME_MDLAPPS', 'mdlapps_moodleadmin');
+*/
 
-/*
 define('DB_HOST_MDLAPPS', 'localhost');
 define('DB_USER_MDLAPPS', 'root');
 define('DB_PASS_MDLAPPS', '');
-define('DB_NAME_MDLAPPS', 'paypal');
-*/
+define('DB_NAME_MDLAPPS', 'mdlapps_moodleadmin');
 
 // --- Mappatura Istanza WooCommerce -> Moodle ---
 // !!! IMPORTANTE: Compila questo array con i dati corretti per OGNI tua istanza WC !!!

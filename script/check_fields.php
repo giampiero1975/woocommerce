@@ -8,8 +8,8 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-$configFile = __DIR__ . '/config_db.php';
-$connectFile = __DIR__ . '/connect.php';
+$configFile = '../config_db.php';
+$connectFile = '../connect.php';
 
 if (!file_exists($configFile) || !file_exists($connectFile)) {
     die("<h3>ERRORE CRITICO:</h3> <p>Impossibile trovare <b>config_db.php</b> o <b>connect.php</b>.<br>Assicurati che questo file sia nella stessa cartella di index.php.</p>");
@@ -19,19 +19,19 @@ require_once $configFile;
 require_once $connectFile;
 
 // 2. CONFIGURAZIONE
-// $targetPrefix = 'MeiOSS-'; // L'istanza che vogliamo analizzare (Professione Farmacia)
-$targetPrefix = 'PF'; // L'istanza che vogliamo analizzare (Professione Farmacia)
+$targetPrefix = 'MeiOSS-'; // L'istanza che vogliamo analizzare (Professione Farmacia)
+// $targetPrefix = 'PF'; // L'istanza che vogliamo analizzare (Professione Farmacia)
 $orderId = $_GET['id'] ?? 0;
 
 if (!$orderId) {
     die("<h3>Istruzioni:</h3> <p>Chiama questo script aggiungendo l'ID dell'ordine nell'URL.<br>Esempio: <a href='?id=7183'>check_fields.php?id=7183</a></p>");
 }
 
-echo "<h1>🔍 Analisi Ordine #$orderId (Istanza: $targetPrefix)</h1>";
+echo "<h1>ðŸ”� Analisi Ordine #$orderId (Istanza: $targetPrefix)</h1>";
 
 // 3. RECUPERO CONFIGURAZIONE DAL TUO FILE
 if (!defined('WC_INSTANCE_MAPPING') || !isset(WC_INSTANCE_MAPPING[$targetPrefix])) {
-    die("❌ Errore: Istanza '$targetPrefix' non trovata in WC_INSTANCE_MAPPING (vedi config_db.php).");
+    die("â�Œ Errore: Istanza '$targetPrefix' non trovata in WC_INSTANCE_MAPPING (vedi config_db.php).");
 }
 
 $config = WC_INSTANCE_MAPPING[$targetPrefix];
@@ -44,7 +44,7 @@ echo "<p>Database: <b>$dbName</b> | Prefisso Tabelle: <b>$dbPrefix</b></p><hr>";
 $conn = DBConnector::getWpDbByName($dbName);
 
 if (!$conn) {
-    die("❌ Errore di connessione al database <b>$dbName</b>. Controlla i log o le credenziali.");
+    die("â�Œ Errore di connessione al database <b>$dbName</b>. Controlla i log o le credenziali.");
 }
 
 // 5. RICERCA DATI (Prova sia HPOS che PostMeta)
@@ -75,8 +75,8 @@ foreach ($tablesToCheck as $tableName => $idColumn) {
 }
 
 if (!$found) {
-    echo "<h2 style='color:red'>❌ Nessun metadato trovato.</h2>";
-    echo "<ul><li>L'ordine esiste?</li><li>L'ID è corretto?</li><li>È nel database $dbName?</li></ul>";
+    echo "<h2 style='color:red'>â�Œ Nessun metadato trovato.</h2>";
+    echo "<ul><li>L'ordine esiste?</li><li>L'ID Ã¨ corretto?</li><li>Ãˆ nel database $dbName?</li></ul>";
 }
 
 // --- FUNZIONE DI STAMPA ---
@@ -95,13 +95,13 @@ function renderResults($res) {
         // Campi Fiscali e Critici
         if (preg_match('/(cf_|piva|vat|pec|sdi|code|fiscale|billing_cf)/i', $k)) {
             $style = "background-color: #ffeb3b; font-weight:bold;";
-            $note = "👀 <b>DA VERIFICARE</b>";
+            $note = "ðŸ‘€ <b>DA VERIFICARE</b>";
         }
         
-        // Campi Standard noti (così li riconosci subito)
+        // Campi Standard noti (cosÃ¬ li riconosci subito)
         if (in_array($k, ['_billing_cf', 'billing_cf', '_billing_email', 'billing_email'])) {
             $style = "";
-            $note = "✅ Standard";
+            $note = "âœ… Standard";
         }
         
         echo "<tr style='$style'>";
