@@ -67,6 +67,7 @@ $endDate = gmdate('Y-m-d') . 'T23:59:59Z';
 $endDateSql = date('Y-m-d H:i:s');   // Per Query SQL Bonifici
 
 // 2. DATA INIZIO PER PAYPAL (Ultime 48 ore - PRODUZIONE)
+//$startDatePayPal = '2025-12-01T00:00:00Z';
 $startDatePayPal = gmdate('Y-m-d\TH:i:s\Z', strtotime('-48 hours'));
 
 // Imposta la data al 1° giorno del mese SCORSO (es. se siamo a Dicembre, parte dal 1° Novembre)

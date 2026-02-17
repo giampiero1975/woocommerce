@@ -14,9 +14,9 @@ class costanti {
             'secret' => 'cs_f3f0bebf009322f74965aaf24899f0ad0b924f60'
         ],
         'mdl_professionefarmacia' => [
-            'url'    => 'https://professionefarmacia.it',
-            'key'    => 'ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // Inserisci qui la tua Consumer Key
-            'secret' => 'cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'  // Inserisci qui la tua Consumer Secret
+            'url' => 'https://professionefarmacia.it',
+            'key' => 'ck_7ea7443ddd23a5f42cfb73576cb08ebbb67d486d',
+            'secret' => 'cs_83861ba46e0a1665d59587f17dea41031e458ea1'
         ]
     ];
     
