@@ -17,9 +17,13 @@ class costanti {
             'url' => 'https://professionefarmacia.it',
             'key' => 'ck_7ea7443ddd23a5f42cfb73576cb08ebbb67d486d',
             'secret' => 'cs_83861ba46e0a1665d59587f17dea41031e458ea1'
-        ]
+        ],
+        'mdl_professioneoculista' => [
+            // WooCommerce -> Impostazioni -> Avanzate -> REST API
+            'url' => 'https://professioneoculista.it',
+            'key' => 'ck_03fc9f3a3c6dc394e2925bd9356411cf3933b13b',
+            'secret' => 'cs_0b33a635a8beee65d86692aa477425f7470f496f',
+            'idnumber_sap' => 'MEcdPO' // --> verifica con Alessia
+        ],
     ];
-    
-    // Se in futuro ti servissero altre costanti comuni (es. per SAP o Log)
-    // puoi aggiungerle qui sotto.
 }

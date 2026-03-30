@@ -67,8 +67,8 @@ $endDate = gmdate('Y-m-d') . 'T23:59:59Z';
 $endDateSql = date('Y-m-d H:i:s');   // Per Query SQL Bonifici
 
 // 2. DATA INIZIO PER PAYPAL (Ultime 48 ore - PRODUZIONE)
-//$startDatePayPal = '2025-12-01T00:00:00Z';
-$startDatePayPal = gmdate('Y-m-d\TH:i:s\Z', strtotime('-48 hours'));
+$startDatePayPal = '2026-03-01T00:00:00Z';
+//$startDatePayPal = gmdate('Y-m-d\TH:i:s\Z', strtotime('-48 hours'));
 
 // Imposta la data al 1° giorno del mese SCORSO (es. se siamo a Dicembre, parte dal 1° Novembre)
 $startDateBacs = date('Y-m-01 00:00:00', strtotime('first day of last month'));
@@ -285,6 +285,7 @@ foreach ($receivedPayments as $tx) {
                 
                 // *** FIX IMPORTANTE: Definiamo che questo è un flusso PayPal ***
                 $instanceConfig['is_paypal'] = true;
+                $instanceConfig['paypal_transaction_id'] = $tx['transaction_id'] ?? null;
                 
                 $resultQueue = queueWooOrderForProcessing($wooOrderId, $instanceConfig);
                 

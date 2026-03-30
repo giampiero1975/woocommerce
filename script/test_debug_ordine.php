@@ -9,8 +9,8 @@ require_once '../config_db.php';
 require_once '../connect.php';
 require_once '../woocommerce_helpers.php';
 
-$orderIdToTest = $_GET['id'] ?? '7397';
-$prefix = $_GET['site'] ?? 'PF';
+$orderIdToTest = $_GET['id'] ?? '11091';
+$prefix = $_GET['site'] ?? '{MeiOSS}';
 
 if (!isset(WC_INSTANCE_MAPPING[$prefix])) {
     die("Istanza $prefix non trovata nel mapping.");
@@ -28,7 +28,7 @@ $resOrder = $conn->query("SELECT total_amount FROM $tableOrders WHERE id = $orde
 $orderBase = $resOrder->fetch_assoc();
 
 echo "<div style='background: #004085; color: white; padding: 20px; border-radius: 8px; margin-bottom: 25px;'>";
-echo "<h2 style='margin:0;'>ðŸ’° Totale Ordine: " . number_format($orderBase['total_amount'], 2) . " â‚¬</h2>";
+echo "<h2 style='margin:0;'>Totale Ordine: " . number_format($orderBase['total_amount'], 2) . "</h2>";
 echo "</div>";
 
 // 2. LA TUA QUERY FUNZIONANTE (Esplosione Articoli)
@@ -61,7 +61,7 @@ if ($res && $res->num_rows > 0) {
                 <td><small>{$item['Tipo']}</small></td>
                 <td><b>" . htmlspecialchars($item['Prodotto']) . "</b></td>
                 <td align='center'>" . ($item['Quantita'] ? "x ".$item['Quantita'] : "---") . "</td>
-                <td align='right'><b>" . number_format($importo, 2) . " â‚¬</b></td>
+                <td align='right'><b>" . number_format($importo, 2) . " </b></td>
               </tr>";
     }
     echo "</table>";
@@ -70,7 +70,7 @@ if ($res && $res->num_rows > 0) {
 }
 
 // 3. DATI FISCALI (Quelli che giÃ  vedevi bene)
-echo "<h3>ðŸ“‘ Dati Fiscali</h3>";
+echo "<h3>Dati Fiscali</h3>";
 $tableMetaOrders = $instanceConfig['wc_db_prefix'] . 'wc_orders_meta';
 $resMeta = $conn->query("SELECT meta_key, meta_value FROM $tableMetaOrders WHERE order_id = $orderIdToTest");
 $meta = [];
@@ -82,5 +82,18 @@ echo "<ul>
         <li><b>SDI:</b> " . ($meta['billing_codiceunivoco'] ?? '---') . "</li>
       </ul>";
 
-echo "<br><a href='index.php'>â¬…ï¸� Torna al Cron</a>";
+echo "<br><a href='index.php'>Torna al Cron</a>";
 echo "</body>";
+
+// Da aggiungere in script/test_debug_ordine.php
+echo "<h3>🔍 Elenco Completo Metadati (Debug Chiavi)</h3>";
+$resAllMeta = $conn->query("SELECT meta_key, meta_value FROM $tableMetaOrders WHERE order_id = $orderIdToTest");
+echo "<table border='1' cellpadding='5' style='border-collapse:collapse; width:100%; background:white;'>";
+echo "<tr style='background:#eee;'><th>Meta Key (Nome Tecnico)</th><th>Valore</th></tr>";
+while($row = $resAllMeta->fetch_assoc()) {
+    echo "<tr>
+            <td><code>{$row['meta_key']}</code></td>
+            <td>" . htmlspecialchars($row['meta_value']) . "</td>
+          </tr>";
+}
+echo "</table>";

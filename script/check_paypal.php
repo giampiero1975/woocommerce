@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Europe/Rome');
 set_time_limit(300); // Aumentiamo il tempo di esecuzione per scaricare tante pagine
 
 // ==================================================================
@@ -11,13 +12,20 @@ $isLive   = true;
 // ==================================================================
 // DATE
 // ==================================================================
-$defaultStart = date('Y-m-d', strtotime('-5 days'));
+$defaultStart = date('Y-m-d', strtotime('-1 days'));
 $defaultEnd   = date('Y-m-d');
 $startDateInput = $_GET['start_date'] ?? $defaultStart;
 $endDateInput   = $_GET['end_date'] ?? $defaultEnd;
 
 $apiStartTime = date('Y-m-d\TH:i:s\Z', strtotime($startDateInput . ' 00:00:00'));
 $apiEndTime   = date('Y-m-d\TH:i:s\Z', strtotime($endDateInput . ' 23:59:59'));
+
+echo "<div style='background:#333; color:#0f0; padding:10px; font-family:monospace; margin-bottom:10px;'>";
+echo "<strong>DEBUG QUERY DATE:</strong><br>";
+echo "Start: " . $apiStartTime . "<br>";
+echo "End:   " . $apiEndTime . "<br>";
+echo "URL finale: https://api.paypal.com/v1/reporting/transactions?" . http_build_query($queryParams ?? []);
+echo "</div>";
 
 // ==================================================================
 // 1. TOKEN
@@ -65,6 +73,8 @@ do {
     $data = json_decode($response, true);
     curl_close($ch);
     
+    print_r($data);
+    die();
     // Aggiungiamo i risultati all'array totale
     if (isset($data['transaction_details'])) {
         $allTransactions = array_merge($allTransactions, $data['transaction_details']);
@@ -81,7 +91,7 @@ do {
     $page++; // Passiamo alla prossima pagina
     
     // Sicurezza per non andare in loop infinito se API impazzisce
-    if ($page > 50) break;
+    // if ($page > 50) break;
     
 } while ($page <= $totalPages);
 
@@ -102,7 +112,7 @@ do {
 </head>
 <body>
 <div class="container">
-    <h2>🔎 Analisi PayPal Reporting (Totale Pagine: <?php echo $totalPages; ?>)</h2>
+    <h2>Analisi PayPal Reporting (Totale Pagine: <?php echo $totalPages; ?>)</h2>
     
     <form method="GET" style="background:#eef; padding:15px; border-radius:5px; margin-bottom:20px;">
         <label>Dal:</label>
@@ -129,14 +139,14 @@ do {
                 <?php 
                     $info = $t['transaction_info'];
                     $amount = $info['transaction_amount']['value'];
-                    if ($amount < 0) continue; // Nascondi uscite
+                    // if ($amount < 0) continue; // Nascondi uscite
                     
                     // Controlli per evidenziare potenziali pagamenti Farmacia
-                    $rowClass = '';
-                    $rawString = json_encode($t);
-                    if (stripos($rawString, 'PF-') !== false || stripos($rawString, 'Farm') !== false) {
-                        $rowClass = 'farmacia';
-                    }
+                    // $rowClass = '';
+                    // $rawString = json_encode($t);
+                    // if (stripos($rawString, 'PF') !== false || stripos($rawString, 'Farm') !== false) {
+                    //    $rowClass = 'farmacia';
+                    // }
                 ?>
                 <tr class="<?php echo $rowClass; ?>">
                     <td><?php echo date('d/m/Y H:i', strtotime($info['transaction_updated_date'])); ?></td>
@@ -156,7 +166,7 @@ do {
                         <?php 
                             if(isset($t['cart_info']['item_details'])){
                                 foreach($t['cart_info']['item_details'] as $item){
-                                    echo "<br>• " . $item['item_name'];
+                                    echo "<br>" . $item['item_name'];
                                 }
                             }
                         ?>

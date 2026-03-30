@@ -44,16 +44,22 @@ define('DB_NAME_MDLAPPS', 'mdlapps_moodleadmin');
 //    'moodle_db_name' => Nome del database Moodle associato a questa istanza WC
 
 define('WC_INSTANCE_MAPPING', [
-    'MeiOSS-' => [ // Prefisso per la prima istanza WC
+    '{MeiOSS}' => [ // Prefisso per la prima istanza WC
         'wc_db_name'   => 'wp_mei', // Esempio: DB WP per MeiOSS
         'wc_db_prefix' => 'wpmei_33_',      // Prefisso tabelle per MeiOSS
         'moodle_db_name' => 'mdl_formazioneoss', // DB Moodle associato
         'cf_meta_key'    => 'billing_cf'
     ],
-    'PF' => [ // Prefisso per la seconda istanza WC
+    '{PF}' => [ // Prefisso per la seconda istanza WC
         'wc_db_name'   => 'wp_mei', // Esempio: DB WP per MeiOSS
         'wc_db_prefix' => 'wpmei_4_',      // Esempio: Prefisso tabelle per Prof.Farmacia
         'moodle_db_name' => 'mdl_professionefarmacia', // DB Moodle associato
+        'cf_meta_key'    => 'cf_user'
+    ],
+    '{PO}' => [ // Prefisso per la seconda istanza WC
+        'wc_db_name'   => 'wp_mei', // Esempio: DB WP per MeiOSS
+        'wc_db_prefix' => 'wpmei_25_',      // Esempio: Prefisso tabelle per Prof.Farmacia
+        'moodle_db_name' => 'mdl_professioneoculista', // DB Moodle associato
         'cf_meta_key'    => 'cf_user'
     ],
     // Aggiungi qui una voce per ogni istanza WooCommerce che usa questo script/PayPal
