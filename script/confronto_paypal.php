@@ -4,6 +4,11 @@
  * Database Centralizzato: moodle_payments e results nello stesso DB.
  */
 
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
 // Connessione 1 (Moodle New)
 try {
     $pdo_new = new PDO("mysql:host=192.168.11.16;dbname=mdlapps_moodleadmin;charset=utf8mb4", 'mdlapps', 'RmnPbT78', [
@@ -186,6 +191,65 @@ usort($processedTxs, function($a, $b) use ($sortOrder) {
     return $sortOrder === 'asc' ? $ta - $tb : $tb - $ta;
 });
 
+// --- LOGICA ESPORTAZIONE EXCEL ---
+if (isset($_GET['export']) && $_GET['export'] === 'excel') {
+    $spreadsheet = new Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle('Riconciliazione PayPal');
+
+    // Intestazioni
+    $headers = ['Data', 'Transaction ID', 'Prodotto / Causale', 'Cliente', 'Email', 'Importo', 'Valuta', 'N. Fattura', 'Stato', 'Sistema', 'Tabella'];
+    foreach ($headers as $i => $h) {
+        $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1) . '1';
+        $sheet->setCellValue($cell, $h);
+        $sheet->getStyle($cell)->getFont()->setBold(true);
+    }
+
+    $rowNum = 2;
+    foreach ($processedTxs as $tx) {
+        $info = $tx['transaction_info'];
+        $payerData = $tx['payer_info'];
+        
+        // Calcolo Stato (Invoice/Evasione)
+        $labelStato = '-';
+        if ($tx['_tabella'] === 'moodle_payments') {
+            $nf = $tx['_nfattura'];
+            $sales = $tx['_sales'];
+            $logs = $tx['_logfile'];
+            if ($sales == 1) $labelStato = $nf ?: 'EVASO';
+            elseif ($sales == 0 && empty($logs)) $labelStato = 'DA EVADERE';
+            elseif ($sales == 0 && !empty($logs)) $labelStato = 'ERRORE';
+        }
+
+        $sheet->setCellValue('A' . $rowNum, date('d/m/Y H:i', strtotime($info['transaction_initiation_date'])));
+        $sheet->setCellValue('B' . $rowNum, trim($info['transaction_id']));
+        $sheet->setCellValue('C' . $rowNum, $tx['cart_info']['item_details'][0]['item_name'] ?? 'N/A');
+        $sheet->setCellValue('D' . $rowNum, $payerData['payer_name']['alternate_full_name'] ?? 'N/D');
+        $sheet->setCellValue('E' . $rowNum, $payerData['email_address'] ?? 'N/D');
+        $sheet->setCellValue('F' . $rowNum, (float)$info['transaction_amount']['value']);
+        $sheet->setCellValue('G' . $rowNum, $info['transaction_amount']['currency_code']);
+        $sheet->setCellValue('H' . $rowNum, $tx['_nfattura'] ?? '');
+        $sheet->setCellValue('I' . $rowNum, $labelStato);
+        $sheet->setCellValue('J' . $rowNum, $tx['_fonte']);
+        $sheet->setCellValue('K' . $rowNum, $tx['_tabella']);
+        
+        $rowNum++;
+    }
+
+    // Auto-size colonne
+    foreach (range('A', 'K') as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment;filename="confronto_paypal_' . date('Ymd_His') . '.xlsx"');
+    header('Cache-Control: max-age=0');
+
+    $writer = new Xlsx($spreadsheet);
+    $writer->save('php://output');
+    exit;
+}
+
 // Ricalcola paginazione sui risultati filtrati e ordinati
 $totalFiltered = count($processedTxs);
 $totalPages    = max(1, (int)ceil($totalFiltered / $pageSize));
@@ -309,6 +373,7 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
                    style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 180px;">
         </div>
         <button type="submit" class="btn-filter">Filtra Transazioni</button>
+        <a href="?<?php echo http_build_query(array_merge($_GET, ['export' => 'excel'])); ?>" class="btn-filter" style="text-decoration:none; background:#28a745;">💾 Scarica Excel</a>
         <div style="margin-left: auto; font-size: 12px; color: #666;">
             Transazioni totali (PayPal): <strong><?php echo $totalItems; ?></strong> | Pagina <?php echo $page; ?> di <?php echo $totalPages; ?>
         </div>
