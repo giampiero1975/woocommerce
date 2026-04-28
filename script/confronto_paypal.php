@@ -185,7 +185,7 @@ foreach ($paypalTxs as $tx) {
         '_db_id'       => $matchData['id'] ?? null,
         '_cardcode'    => $matchData['cardcode'] ?? '',
         '_fee_amount'  => (float)($info['fee_amount']['value'] ?? 0),
-        '_net_amount'  => (float)($info['transaction_amount']['value'] ?? 0) + (float)($info['fee_amount']['value'] ?? 0),
+        '_net_amount'  => (float)($info['transaction_amount']['value'] ?? 0) - abs((float)($info['fee_amount']['value'] ?? 0)),
     ]);
 }
 
