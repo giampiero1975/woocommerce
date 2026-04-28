@@ -169,6 +169,7 @@ foreach ($paypalTxs as $tx) {
     if ($filterHost === 'ASSENTE'   && $hostTrovato !== 'N/A')       continue;
     if ($filterHost === 'Moodle New' && $hostTrovato !== 'Moodle New') continue;
     if ($filterHost === 'Moodle Old' && $hostTrovato !== 'Moodle Old') continue;
+    if ($filterHost === 'ERRORE'     && ($tabella !== 'moodle_payments' || ($matchData['sales'] ?? 1) != 0)) continue;
 
     // Applica filtro Transaction ID (Backend search)
     if ($filterTxnId !== '' && stripos($txId, $filterTxnId) === false) continue;
@@ -181,6 +182,7 @@ foreach ($paypalTxs as $tx) {
         '_nfattura'    => $matchData['nfattura'] ?? '',
         '_sales'       => $matchData['sales'] ?? null,
         '_logfile'     => $matchData['logfile'] ?? null,
+        '_db_id'       => $matchData['id'] ?? null,
     ]);
 }
 
@@ -305,6 +307,11 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
         .page-link { padding: 5px 10px; border: 1px solid #ddd; background: white; text-decoration: none; color: #1a3a5a; border-radius: 4px; }
         .page-link.active { background: #1a3a5a; color: white; border-color: #1a3a5a; }
         .page-link:hover:not(.active) { background: #f0f2f5; }
+
+        .btn-sap { background: #28a745; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; display: inline-block; margin-top: 5px; }
+        .btn-sap:hover { background: #218838; color: white; }
+        .btn-log { background: #6c757d; color: white; text-decoration: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; display: inline-block; margin-top: 5px; }
+        .btn-log:hover { background: #5a6268; color: white; }
     </style>
     <script>
         function toggleDetails(id) {
@@ -356,6 +363,7 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
                 <option value="ASSENTE" <?php echo $filterHost === 'ASSENTE' ? 'selected' : ''; ?>>Assenti (ROSSO)</option>
                 <option value="Moodle New" <?php echo $filterHost === 'Moodle New' ? 'selected' : ''; ?>>Moodle New</option>
                 <option value="Moodle Old" <?php echo $filterHost === 'Moodle Old' ? 'selected' : ''; ?>>Moodle Old</option>
+                <option value="ERRORE"     <?php echo $filterHost === 'ERRORE'     ? 'selected' : ''; ?>>Errori</option>
             </select>
         </div>
         <div>
@@ -477,6 +485,15 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
                             <b>Dati Tecnici PayPal</b>
                             <p>ID Account: <code><?php echo $payerData['account_id'] ?? 'N/D'; ?></code></p>
                             <p>Invoice ID: <code><?php echo $info['invoice_id'] ?? 'N/A'; ?></code></p>
+                        </div>
+                        <div class="detail-box">
+                            <b>Azioni Operative</b>
+                            <?php if ($tx['_tabella'] === 'moodle_payments' && $tx['_sales'] == 0 && $tx['_db_id']): ?>
+                                <a href="http://moodlesapwoocommerce.metmi.lan/index.php/sap/ins?id=<?php echo $tx['_db_id']; ?>" target="_blank" class="btn-sap">🚀 Rilancio SAP</a>
+                            <?php endif; ?>
+                            <?php if (!empty($tx['_logfile']) && $tx['_tabella'] === 'moodle_payments' && $tx['_sales'] == 0): ?>
+                                <a href="http://moodlesapwoocommerce.metmi.lan/logs/<?php echo $tx['_logfile']; ?>" target="_blank" class="btn-log">📋 Log Errore</a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </td>
