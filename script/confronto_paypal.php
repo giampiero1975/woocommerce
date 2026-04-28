@@ -107,7 +107,7 @@ $totalPages = 1; // verrà ricalcolato dopo filtro + ordinamento
 // (indispensabile quando il filtro host è attivo, per poter paginare sui risultati filtrati)
 $checkDb = function($pdo, $table, $txId) {
     if ($table === 'moodle_payments') {
-        $stmt = $pdo->prepare("SELECT mp.id, mp.sales, mp.logfile, i.nfattura 
+        $stmt = $pdo->prepare("SELECT mp.id, mp.sales, mp.logfile, i.nfattura, i.cardcode 
                                FROM moodle_payments mp 
                                LEFT JOIN invoice i ON mp.id = i.moodle_payment_id 
                                WHERE mp.transaction_id = :txId LIMIT 1");
@@ -183,6 +183,7 @@ foreach ($paypalTxs as $tx) {
         '_sales'       => $matchData['sales'] ?? null,
         '_logfile'     => $matchData['logfile'] ?? null,
         '_db_id'       => $matchData['id'] ?? null,
+        '_cardcode'    => $matchData['cardcode'] ?? '',
     ]);
 }
 
@@ -200,7 +201,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $sheet->setTitle('Riconciliazione PayPal');
 
     // Intestazioni
-    $headers = ['Data', 'Transaction ID', 'Prodotto / Causale', 'Cliente', 'Email', 'Importo', 'Valuta', 'N. Fattura', 'Stato', 'Sistema', 'Tabella'];
+    $headers = ['Data', 'Transaction ID', 'Prodotto / Causale', 'CARDCODE', 'Cliente', 'Email', 'Importo', 'Valuta', 'N. Fattura', 'Stato', 'Sistema', 'Tabella'];
     foreach ($headers as $i => $h) {
         $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1) . '1';
         $sheet->setCellValue($cell, $h);
@@ -226,20 +227,21 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         $sheet->setCellValue('A' . $rowNum, date('d/m/Y H:i', strtotime($info['transaction_initiation_date'])));
         $sheet->setCellValue('B' . $rowNum, trim($info['transaction_id']));
         $sheet->setCellValue('C' . $rowNum, $tx['cart_info']['item_details'][0]['item_name'] ?? 'N/A');
-        $sheet->setCellValue('D' . $rowNum, $payerData['payer_name']['alternate_full_name'] ?? 'N/D');
-        $sheet->setCellValue('E' . $rowNum, $payerData['email_address'] ?? 'N/D');
-        $sheet->setCellValue('F' . $rowNum, (float)$info['transaction_amount']['value']);
-        $sheet->setCellValue('G' . $rowNum, $info['transaction_amount']['currency_code']);
-        $sheet->setCellValue('H' . $rowNum, $tx['_nfattura'] ?? '');
-        $sheet->setCellValue('I' . $rowNum, $labelStato);
-        $sheet->setCellValue('J' . $rowNum, $tx['_fonte']);
-        $sheet->setCellValue('K' . $rowNum, $tx['_tabella']);
+        $sheet->setCellValue('D' . $rowNum, $tx['_cardcode'] ?? '');
+        $sheet->setCellValue('E' . $rowNum, $payerData['payer_name']['alternate_full_name'] ?? 'N/D');
+        $sheet->setCellValue('F' . $rowNum, $payerData['email_address'] ?? 'N/D');
+        $sheet->setCellValue('G' . $rowNum, (float)$info['transaction_amount']['value']);
+        $sheet->setCellValue('H' . $rowNum, $info['transaction_amount']['currency_code']);
+        $sheet->setCellValue('I' . $rowNum, $tx['_nfattura'] ?? '');
+        $sheet->setCellValue('J' . $rowNum, $labelStato);
+        $sheet->setCellValue('K' . $rowNum, $tx['_fonte']);
+        $sheet->setCellValue('L' . $rowNum, $tx['_tabella']);
         
         $rowNum++;
     }
 
     // Auto-size colonne
-    foreach (range('A', 'K') as $col) {
+    foreach (range('A', 'L') as $col) {
         $sheet->getColumnDimension($col)->setAutoSize(true);
     }
 
