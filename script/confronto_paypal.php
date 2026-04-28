@@ -184,6 +184,8 @@ foreach ($paypalTxs as $tx) {
         '_logfile'     => $matchData['logfile'] ?? null,
         '_db_id'       => $matchData['id'] ?? null,
         '_cardcode'    => $matchData['cardcode'] ?? '',
+        '_fee_amount'  => (float)($info['fee_amount']['value'] ?? 0),
+        '_net_amount'  => (float)($info['transaction_amount']['value'] ?? 0) + (float)($info['fee_amount']['value'] ?? 0),
     ]);
 }
 
@@ -201,7 +203,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $sheet->setTitle('Riconciliazione PayPal');
 
     // Intestazioni
-    $headers = ['Data', 'Transaction ID', 'Prodotto / Causale', 'CARDCODE', 'Cliente', 'Email', 'Importo', 'Valuta', 'N. Fattura', 'Stato', 'Sistema', 'Tabella'];
+    $headers = ['Data', 'Transaction ID', 'Prodotto / Causale', 'CARDCODE', 'Cliente', 'Email', 'Lordo', 'Commissione', 'Netto', 'Valuta', 'N. Fattura', 'Stato', 'Sistema', 'Tabella'];
     foreach ($headers as $i => $h) {
         $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1) . '1';
         $sheet->setCellValue($cell, $h);
@@ -231,17 +233,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         $sheet->setCellValue('E' . $rowNum, $payerData['payer_name']['alternate_full_name'] ?? 'N/D');
         $sheet->setCellValue('F' . $rowNum, $payerData['email_address'] ?? 'N/D');
         $sheet->setCellValue('G' . $rowNum, (float)$info['transaction_amount']['value']);
-        $sheet->setCellValue('H' . $rowNum, $info['transaction_amount']['currency_code']);
-        $sheet->setCellValue('I' . $rowNum, $tx['_nfattura'] ?? '');
-        $sheet->setCellValue('J' . $rowNum, $labelStato);
-        $sheet->setCellValue('K' . $rowNum, $tx['_fonte']);
-        $sheet->setCellValue('L' . $rowNum, $tx['_tabella']);
+        $sheet->setCellValue('H' . $rowNum, $tx['_fee_amount']);
+        $sheet->setCellValue('I' . $rowNum, $tx['_net_amount']);
+        $sheet->setCellValue('J' . $rowNum, $info['transaction_amount']['currency_code']);
+        $sheet->setCellValue('K' . $rowNum, $tx['_nfattura'] ?? '');
+        $sheet->setCellValue('L' . $rowNum, $labelStato);
+        $sheet->setCellValue('M' . $rowNum, $tx['_fonte']);
+        $sheet->setCellValue('N' . $rowNum, $tx['_tabella']);
         
         $rowNum++;
     }
 
     // Auto-size colonne
-    foreach (range('A', 'L') as $col) {
+    foreach (range('A', 'N') as $col) {
         $sheet->getColumnDimension($col)->setAutoSize(true);
     }
 
