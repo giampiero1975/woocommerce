@@ -488,11 +488,14 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
                         </div>
                         <div class="detail-box">
                             <b>Azioni Operative</b>
+                            <?php 
+                            $baseLink = ($tx['_fonte'] === 'MOODLE') ? 'http://moodlesap.metmi.lan' : 'http://moodlesapwoocommerce.metmi.lan';
+                            ?>
                             <?php if ($tx['_tabella'] === 'moodle_payments' && $tx['_sales'] == 0 && $tx['_db_id']): ?>
-                                <a href="http://moodlesapwoocommerce.metmi.lan/index.php/sap/ins?id=<?php echo $tx['_db_id']; ?>" target="_blank" class="btn-sap">🚀 Rilancio SAP</a>
+                                <a href="<?php echo $baseLink; ?>/index.php/sap/ins?id=<?php echo $tx['_db_id']; ?>" target="_blank" class="btn-sap">🚀 Rilancio SAP</a>
                             <?php endif; ?>
                             <?php if (!empty($tx['_logfile']) && $tx['_tabella'] === 'moodle_payments' && $tx['_sales'] == 0): ?>
-                                <a href="http://moodlesapwoocommerce.metmi.lan/logs/<?php echo $tx['_logfile']; ?>" target="_blank" class="btn-log">📋 Log Errore</a>
+                                <a href="<?php echo $baseLink; ?>/logs/<?php echo $tx['_logfile']; ?>" target="_blank" class="btn-log">📋 Log Errore</a>
                             <?php endif; ?>
                         </div>
                     </div>
