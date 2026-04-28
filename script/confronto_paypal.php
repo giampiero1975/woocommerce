@@ -218,7 +218,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             $nf = $tx['_nfattura'];
             $sales = $tx['_sales'];
             $logs = $tx['_logfile'];
-            if ($sales == 1) $labelStato = $nf ?: 'EVASO';
+            if ($sales == 1) $labelStato = 'PAGATO';
             elseif ($sales == 0 && empty($logs)) $labelStato = 'DA EVADERE';
             elseif ($sales == 0 && !empty($logs)) $labelStato = 'ERRORE';
         }
@@ -434,7 +434,7 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
                         $logs = $tx['_logfile'];
 
                         if ($sales == 1):
-                            $label = $nf ?: 'EVASO';
+                            $label = 'PAGATO';
                             $class = 'table-label-green';
                         elseif ($sales == 0 && empty($logs)):
                             $label = 'DA EVADERE';
