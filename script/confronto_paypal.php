@@ -438,7 +438,7 @@ $processedTxs = array_slice($processedTxs, ($page - 1) * $pageSize, $pageSize);
                         $logs = $tx['_logfile'];
 
                         if ($sales == 1):
-                            $label = 'PAGATO';
+                            $label = $nf ?: 'EVASO';
                             $class = 'table-label-green';
                         elseif ($sales == 0 && empty($logs)):
                             $label = 'DA EVADERE';
